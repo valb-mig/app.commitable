@@ -96,7 +96,6 @@ export default function App() {
           />
         </View>
 
-        {/* Create/Edit — slides in on top */}
         {(screen === "create" || screen === "edit") && (
           <Animated.View
             style={{
