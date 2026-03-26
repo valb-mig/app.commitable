@@ -22,13 +22,8 @@ type Props = {
   commitDay: (habitId: string, dateKey: string, message: string) => void;
   uncommitDay: (habitId: string, dateKey: string) => void;
   deleteHabit: (id: string) => void;
-  addHabit: (data: Omit<Habit, "id" | "commits">) => void;
-  updateHabit: (id: string, data: Partial<Omit<Habit, "id" | "commits">>) => void;
-  syncConnector: (habitId: string) => Promise<void>;
-  loading: boolean;
   onNavigateCreate: () => void;
   onNavigateEdit: (habit: Habit) => void;
-  onBack: () => void;
 };
 
 export default function HomeScreen({
