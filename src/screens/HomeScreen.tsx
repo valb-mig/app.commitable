@@ -185,7 +185,6 @@ export default function HomeScreen({
         showsVerticalScrollIndicator={false}
       >
         {filtered ? (
-          // Filtered view
           <View>
             <View style={[styles.bigCard, { borderColor: filtered.color.mid }]}>
               <View style={styles.bigCardHeader}>

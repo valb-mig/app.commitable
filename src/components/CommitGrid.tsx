@@ -29,13 +29,11 @@ export default function CommitGrid({
   const sq = small ? SQ_SMALL : SQ_LARGE;
   const gap = small ? GAP_SMALL : GAP_LARGE;
 
-  // lazy mount
   useEffect(() => {
     const id = requestAnimationFrame(() => setReady(true));
     return () => cancelAnimationFrame(id);
   }, []);
 
-  // memo data
   const weeks = useMemo(() => generateWeeks(), []);
 
   const monthCols = useMemo(() => {

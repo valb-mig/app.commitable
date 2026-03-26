@@ -18,13 +18,12 @@ export function generateWeeks(): Date[][] {
 
   const start = new Date(t);
   start.setFullYear(t.getFullYear() - 1);
-  start.setDate(start.getDate() - start.getDay()); // align to Sunday
+  start.setDate(start.getDate() - start.getDay());
 
   for (let d = new Date(start); d <= t; d.setDate(d.getDate() + 1)) {
     days.push(new Date(d));
   }
 
-  // pad to complete last week
   const extra = 6 - today().getDay();
   for (let i = 1; i <= extra; i++) {
     const fd = new Date(t);
