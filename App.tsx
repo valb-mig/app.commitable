@@ -31,8 +31,15 @@ export default function App() {
     JetBrainsMono_700Bold,
   });
 
-  const { habits, loading, addHabit, updateHabit, deleteHabit, commitDay, uncommitDay } =
-    useHabits();
+  const { 
+    habits, 
+    loading, 
+    addHabit, 
+    updateHabit, 
+    deleteHabit, 
+    commitDay, 
+    uncommitDay
+  } = useHabits();
 
   const [screen, setScreen] = useState<Screen>("home");
   const [editTarget, setEditTarget] = useState<Habit | null>(null);
@@ -90,13 +97,12 @@ export default function App() {
             habits={habits}
             commitDay={commitDay}
             uncommitDay={uncommitDay}
+            deleteHabit={deleteHabit}
             onNavigateCreate={() => navigateTo("create", null)}
             onNavigateEdit={(habit) => navigateTo("edit", habit)}
-            onNavigateBack={navigateBack}
           />
         </View>
 
-        {/* Create/Edit — slides in on top */}
         {(screen === "create" || screen === "edit") && (
           <Animated.View
             style={{

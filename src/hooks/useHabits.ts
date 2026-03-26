@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import SharedPrefs from 'react-native-shared-preferences';
+import { updateWidget } from "../services/widget";
+
 import type { Habit, CommitMap } from "../types";
 
 const STORAGE_KEY = "@commitable_habits";
@@ -25,20 +28,22 @@ export function useHabits() {
     })();
   }, []);
 
-  const persist = useCallback(
-    async (next: Habit[]) => {
-      setHabits(next);
-      try {
-        console.log("persist", next);
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch (e) {
-        console.warn("persist failed", e);
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
-
+  const persist = useCallback(async (next: Habit[]) => {
+    setHabits(next);
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    const mainHabit = next[0]; 
+    if (mainHabit) {
+      SharedPrefs.setName("habits"); 
+      console.log("Saving to Widget:", mainHabit.color.mid, Object.keys(mainHabit.commits).length, "commits");
+      SharedPrefs.setItem("habit_commits", JSON.stringify(mainHabit.commits));
+      SharedPrefs.setItem("habit_color", mainHabit.color.mid);
+      SharedPrefs.setItem("habit_name", mainHabit.name);
+      
+      // Força atualização do widget
+      updateWidget();
+    }
+  }, []);
+  
   const addHabit = useCallback(
     (data: Omit<Habit, "id" | "commits">) => {
       const next: Habit = { ...data, id: Date.now().toString(), commits: {} };

@@ -13,7 +13,7 @@ import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.soloader.SoLoader
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ViewManager
-import com.commitable.app.widget.HabitWidgetModule
+import com.commitable.app.widget.WidgetModule
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
 
@@ -27,7 +27,7 @@ class MainApplication : Application(), ReactApplication {
 
             packages.add(object : ReactPackage {
               override fun createNativeModules(reactContext: ReactApplicationContext)
-                = listOf(HabitWidgetModule(reactContext))
+                = listOf(WidgetModule(reactContext))
 
               override fun createViewManagers(reactContext: ReactApplicationContext)
                 = emptyList<ViewManager<*, *>>()
@@ -52,7 +52,6 @@ class MainApplication : Application(), ReactApplication {
     super.onCreate()
     SoLoader.init(this, false)
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
-      // If you opted-in for the New Architecture, we load the native entry point for this app.
       load()
     }
     ApplicationLifecycleDispatcher.onApplicationCreate(this)

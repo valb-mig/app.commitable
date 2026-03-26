@@ -1,11 +1,9 @@
-import { NativeModules, Platform } from "react-native";
+import { NativeModules, Platform } from 'react-native';
 
-export function updateWidget(name: string, streak: number) {
-  if (Platform.OS === "android") {
-    NativeModules.HabitWidget.updateWidget(name, streak);
-  }
+const { WidgetModule } = NativeModules;
 
-  if (Platform.OS === "ios") {
-    NativeModules.HabitWidget.updateWidget(name, streak);
+export const updateWidget = () => {
+  if (Platform.OS === 'android' && WidgetModule) {
+    WidgetModule.updateWidget();
   }
-}
+};
