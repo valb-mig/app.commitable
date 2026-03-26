@@ -71,9 +71,13 @@ export default function CreateHabitScreen({
         {
           text: "Remove",
           style: "destructive",
-          onPress: () => {
-            if (editHabit) deleteHabit(editHabit.id);
-            onBack();
+          onPress: async () => {
+            console.log("Deleting habit:", editHabit?.id);
+            await deleteHabit(editHabit?.id ?? "");
+            console.log("Habit deleted, navigating back");
+            setTimeout(() => {
+              onBack();
+            }, 100);
           },
         },
       ]

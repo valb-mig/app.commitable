@@ -16,24 +16,28 @@ import CommitModal from "../components/CommitModal";
 import { today, toKey } from "../utils/date";
 import { COLORS, FONT } from "../utils/theme";
 import type { Habit } from "../types";
-import { useHabits } from "@/hooks/useHabits";
 
 type Props = {
   habits: Habit[];
   commitDay: (habitId: string, dateKey: string, message: string) => void;
   uncommitDay: (habitId: string, dateKey: string) => void;
+  deleteHabit: (id: string) => void;
+  addHabit: (data: Omit<Habit, "id" | "commits">) => void;
+  updateHabit: (id: string, data: Partial<Omit<Habit, "id" | "commits">>) => void;
+  syncConnector: (habitId: string) => Promise<void>;
+  loading: boolean;
   onNavigateCreate: () => void;
   onNavigateEdit: (habit: Habit) => void;
-  onNavigateBack: () => void;
+  onBack: () => void;
 };
 
 export default function HomeScreen({
   habits,
   commitDay,
   uncommitDay,
+  deleteHabit,
   onNavigateCreate,
-  onNavigateEdit,
-  onNavigateBack,
+  onNavigateEdit
 }: Props) {
   const [filterId, setFilterId] = useState<string | null>(null);
   const [modalDay, setModalDay] = useState<Date | null>(null);
@@ -52,6 +56,10 @@ export default function HomeScreen({
 
     return () => cancelAnimationFrame(id);
   }, [filterId]);
+
+  useEffect(() => {
+    console.log("HomeScreen received habits update:", habits.length);
+  }, [habits]);
 
   const openModal = (habit: Habit, day: Date) => {
     setModalHabitId(habit.id);
@@ -73,24 +81,25 @@ export default function HomeScreen({
 
   const todayKey = toKey(today());
   const todayCommitted = filtered ? filtered.commits[todayKey]?.committed : false;
-  const { deleteHabit } = useHabits();
 
   const confirmDelete = () => {
-      Alert.alert(
-        "Remove habit",
-        `Are you sure you want to remove "${filtered?.name}"? All history will be lost.`,
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Remove",
-            style: "destructive",
-            onPress: () => {
-              if (filtered) deleteHabit(filtered.id);
-              onNavigateBack();
-            },
+    Alert.alert(
+      "Remove habit",
+      `Are you sure you want to remove "${filtered?.name}"? All history will be lost.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            console.log("Deleting habit:", filtered?.id);
+            await deleteHabit(filtered?.id ?? "");
+            console.log("Habit deleted, clearing filter");
+            setFilterId(null); // Limpa o filtro após deletar
           },
-        ]
-      );
+        },
+      ]
+    );
   };
 
   return (
@@ -198,7 +207,7 @@ export default function HomeScreen({
                   <TouchableOpacity onPress={() => onNavigateEdit(filtered)}>
                     <Text style={[styles.editBtn, { fontFamily: FONT.regular }]}>edit</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.deleteBtn} onPress={confirmDelete}>
+                  <TouchableOpacity onPress={confirmDelete}>
                     <Text style={[styles.deleteBtnText, { fontFamily: FONT.regular }]}>
                       remove
                     </Text>
@@ -345,6 +354,5 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: "center", paddingVertical: 60 },
   emptyText: { color: COLORS.textGhost, fontSize: 14, marginBottom: 6 },
   emptyHint: { color: COLORS.textGhost, fontSize: 11 },
-  deleteBtn: { padding: 12, alignItems: "center" },
   deleteBtnText: { color: COLORS.danger, fontSize: 13 },
 });
