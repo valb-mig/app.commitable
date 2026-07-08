@@ -13,6 +13,7 @@ import {
   Alert,
 } from "react-native";
 import { COLORS, HABIT_COLORS, FONT, type HabitColor } from "../utils/theme";
+import { requestPermission, scheduleDaily, cancelForHabit } from "../services/notifications";
 import type { Habit } from "../types";
 
 type Props = {
@@ -23,7 +24,9 @@ type Props = {
   onBack: () => void;
 };
 
-const STEPS = ["name", "color", "connector"] as const;
+const STEPS = ["name", "color", "connector", "reminder"] as const;
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const MINUTES = [0, 15, 30, 45];
 
 export default function CreateHabitScreen({
   editHabit,
@@ -36,7 +39,17 @@ export default function CreateHabitScreen({
   const [name, setName] = useState(editHabit?.name ?? "");
   const [color, setColor] = useState<HabitColor>(editHabit?.color ?? HABIT_COLORS[0]);
   const [url, setUrl] = useState(editHabit?.connectorUrl ?? "");
+  const [urlError, setUrlError] = useState("");
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderHour, setReminderHour] = useState(21);
+  const [reminderMinute, setReminderMinute] = useState(0);
   const inputRef = useRef<TextInput>(null);
+
+  const isValidUrl = (s: string) => {
+    if (!s.trim()) return true;
+    try { new URL(s); return true; }
+    catch { return false; }
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => inputRef.current?.focus(), 300);
@@ -52,13 +65,32 @@ export default function CreateHabitScreen({
     }
   };
 
-  const finish = () => {
+  const finish = async () => {
+    if (!isValidUrl(url)) {
+      setUrlError("Invalid URL — must start with https://");
+      return;
+    }
+    setUrlError("");
     const data = { name: name.trim(), color, connectorUrl: url.trim() };
+    const habitId = editHabit?.id ?? Date.now().toString();
+
     if (editHabit) {
       updateHabit(editHabit.id, data);
     } else {
       addHabit(data);
     }
+
+    if (reminderEnabled) {
+      const granted = await requestPermission();
+      if (granted) {
+        await scheduleDaily(habitId, name.trim(), reminderHour, reminderMinute);
+      } else {
+        Alert.alert("Permission denied", "Enable notifications in device settings to use reminders.");
+      }
+    } else if (editHabit) {
+      await cancelForHabit(editHabit.id);
+    }
+
     onBack();
   };
 
@@ -72,12 +104,8 @@ export default function CreateHabitScreen({
           text: "Remove",
           style: "destructive",
           onPress: async () => {
-            console.log("Deleting habit:", editHabit?.id);
             await deleteHabit(editHabit?.id ?? "");
-            console.log("Habit deleted, navigating back");
-            setTimeout(() => {
-              onBack();
-            }, 100);
+            onBack();
           },
         },
       ]
@@ -178,18 +206,82 @@ export default function CreateHabitScreen({
               <TextInput
                 ref={step === 2 ? inputRef : undefined}
                 value={url}
-                onChangeText={setUrl}
-                onSubmitEditing={finish}
+                onChangeText={(t) => { setUrl(t); setUrlError(""); }}
+                onSubmitEditing={next}
                 placeholder="https://meu-script.vercel.app/commits"
                 placeholderTextColor={COLORS.textGhost}
-                returnKeyType="done"
+                returnKeyType="next"
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="url"
-                style={[styles.input, { borderColor: color.mid, fontFamily: FONT.regular }]}
+                style={[styles.input, { borderColor: urlError ? COLORS.danger : color.mid, fontFamily: FONT.regular }]}
               />
+              {urlError ? (
+                <Text style={[styles.errorText, { fontFamily: FONT.regular }]}>{urlError}</Text>
+              ) : null}
+              {step === 2 && (
+                <TouchableOpacity
+                  style={[styles.continueBtn, { opacity: 1 }]}
+                  onPress={next}
+                >
+                  <Text style={[styles.continueBtnText, { fontFamily: FONT.regular }]}>continuar →</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {/* Step 3: Reminder */}
+          {step >= 3 && (
+            <View style={styles.stepBlock}>
+              <Text style={[styles.stepLabel, { fontFamily: FONT.regular }]}>
+                ❯ lembrete diário{" "}
+                <Text style={{ color: COLORS.border }}>(opcional)</Text>
+              </Text>
               <TouchableOpacity
-                style={[styles.commitBtn, { backgroundColor: color.mid }]}
+                onPress={() => setReminderEnabled((v) => !v)}
+                style={styles.toggleRow}
+              >
+                <View style={[styles.toggle, reminderEnabled && { backgroundColor: color.mid }]}>
+                  <View style={[styles.toggleThumb, reminderEnabled && styles.toggleThumbOn]} />
+                </View>
+                <Text style={[styles.stepHint, { fontFamily: FONT.regular, marginBottom: 0 }]}>
+                  {reminderEnabled ? "ativado" : "desativado"}
+                </Text>
+              </TouchableOpacity>
+
+              {reminderEnabled && (
+                <View style={styles.timeRow}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
+                    {HOURS.map((h) => (
+                      <TouchableOpacity
+                        key={h}
+                        onPress={() => setReminderHour(h)}
+                        style={[styles.timeChip, reminderHour === h && { backgroundColor: color.mid }]}
+                      >
+                        <Text style={[styles.timeChipText, { fontFamily: FONT.regular }]}>
+                          {String(h).padStart(2, "0")}h
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  <View style={styles.minuteRow}>
+                    {MINUTES.map((m) => (
+                      <TouchableOpacity
+                        key={m}
+                        onPress={() => setReminderMinute(m)}
+                        style={[styles.timeChip, reminderMinute === m && { backgroundColor: color.mid }]}
+                      >
+                        <Text style={[styles.timeChipText, { fontFamily: FONT.regular }]}>
+                          :{String(m).padStart(2, "0")}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.commitBtn, { backgroundColor: color.mid, marginTop: 20 }]}
                 onPress={finish}
                 activeOpacity={0.8}
               >
@@ -281,6 +373,37 @@ const styles = StyleSheet.create({
   commitBtnText: { color: "#fff", fontSize: 14 },
   deleteBtn: { padding: 12, alignItems: "center" },
   deleteBtnText: { color: COLORS.danger, fontSize: 13 },
+  errorText: { color: COLORS.danger, fontSize: 11, marginBottom: 8 },
+  toggleRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 },
+  toggle: {
+    width: 36,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: COLORS.border,
+    justifyContent: "center",
+    paddingHorizontal: 2,
+  },
+  toggleThumb: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: COLORS.textGhost,
+  },
+  toggleThumbOn: {
+    alignSelf: "flex-end",
+    backgroundColor: "#fff",
+  },
+  timeRow: { gap: 8 },
+  minuteRow: { flexDirection: "row", gap: 6, marginTop: 4 },
+  timeChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginRight: 4,
+  },
+  timeChipText: { color: COLORS.text, fontSize: 11 },
   progress: { flexDirection: "row", gap: 6, marginTop: 32 },
   progressBar: { flex: 1, height: 2, borderRadius: 2 },
 });

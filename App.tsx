@@ -31,14 +31,15 @@ export default function App() {
     JetBrainsMono_700Bold,
   });
 
-  const { 
-    habits, 
-    loading, 
-    addHabit, 
-    updateHabit, 
-    deleteHabit, 
-    commitDay, 
-    uncommitDay
+  const {
+    habits,
+    loading,
+    addHabit,
+    updateHabit,
+    deleteHabit,
+    commitDay,
+    uncommitDay,
+    syncConnector,
   } = useHabits();
 
   const [screen, setScreen] = useState<Screen>("home");
@@ -98,6 +99,7 @@ export default function App() {
             commitDay={commitDay}
             uncommitDay={uncommitDay}
             deleteHabit={deleteHabit}
+            syncConnector={syncConnector}
             onNavigateCreate={() => navigateTo("create", null)}
             onNavigateEdit={(habit) => navigateTo("edit", habit)}
           />

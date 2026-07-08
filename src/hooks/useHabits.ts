@@ -28,18 +28,17 @@ export function useHabits() {
     })();
   }, []);
 
-  const persist = useCallback(async (next: Habit[]) => {
+  const persist = useCallback(async (next: Habit[], widgetHabitId?: string) => {
     setHabits(next);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    const mainHabit = next[0]; 
-    if (mainHabit) {
-      SharedPrefs.setName("habits"); 
-      console.log("Saving to Widget:", mainHabit.color.mid, Object.keys(mainHabit.commits).length, "commits");
-      SharedPrefs.setItem("habit_commits", JSON.stringify(mainHabit.commits));
-      SharedPrefs.setItem("habit_color", mainHabit.color.mid);
-      SharedPrefs.setItem("habit_name", mainHabit.name);
-      
-      // Força atualização do widget
+    const widgetHabit = widgetHabitId
+      ? next.find((h) => h.id === widgetHabitId) ?? next[0]
+      : next[0];
+    if (widgetHabit) {
+      SharedPrefs.setName("habits");
+      SharedPrefs.setItem("habit_commits", JSON.stringify(widgetHabit.commits));
+      SharedPrefs.setItem("habit_color", widgetHabit.color.mid);
+      SharedPrefs.setItem("habit_name", widgetHabit.name);
       updateWidget();
     }
   }, []);
@@ -93,14 +92,19 @@ export function useHabits() {
   );
 
   const syncConnector = useCallback(
-    async (habitId: string): Promise<void> => {
+    async (habitId: string): Promise<{ ok: boolean; error?: string }> => {
       const habit = habits.find((h) => h.id === habitId);
-      if (!habit?.connectorUrl) return;
+      if (!habit?.connectorUrl) return { ok: false, error: "No connector URL configured" };
 
-      const res = await fetch(habit.connectorUrl);
-      const json = (await res.json()) as ConnectorResponse;
+      try {
+        const res = await fetch(habit.connectorUrl);
+        if (!res.ok) return { ok: false, error: `Server returned ${res.status}` };
 
-      if (json?.days && typeof json.days === "object") {
+        const json = (await res.json()) as ConnectorResponse;
+        if (!json?.days || typeof json.days !== "object") {
+          return { ok: false, error: "Invalid response format — expected { days: {...} }" };
+        }
+
         const merged: CommitMap = { ...habit.commits };
         Object.entries(json.days).forEach(([key, val]) => {
           merged[key] = {
@@ -108,7 +112,14 @@ export function useHabits() {
             message: val.message ?? merged[key]?.message ?? "",
           };
         });
-        persist(habits.map((h) => (h.id === habitId ? { ...h, commits: merged } : h)));
+        persist(
+          habits.map((h) => (h.id === habitId ? { ...h, commits: merged } : h)),
+          habitId
+        );
+        return { ok: true };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Connection failed";
+        return { ok: false, error: msg };
       }
     },
     [habits, persist]

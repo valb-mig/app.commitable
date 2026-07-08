@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
   StyleSheet,
   SafeAreaView,
   StatusBar,
@@ -14,6 +15,7 @@ import CommitGrid from "../components/CommitGrid";
 import CommitList from "../components/CommitList";
 import CommitModal from "../components/CommitModal";
 import { today, toKey } from "../utils/date";
+import { computeStats } from "../utils/stats";
 import { COLORS, FONT } from "../utils/theme";
 import type { Habit } from "../types";
 
@@ -22,6 +24,7 @@ type Props = {
   commitDay: (habitId: string, dateKey: string, message: string) => void;
   uncommitDay: (habitId: string, dateKey: string) => void;
   deleteHabit: (id: string) => void;
+  syncConnector: (habitId: string) => Promise<{ ok: boolean; error?: string }>;
   onNavigateCreate: () => void;
   onNavigateEdit: (habit: Habit) => void;
 };
@@ -31,13 +34,15 @@ export default function HomeScreen({
   commitDay,
   uncommitDay,
   deleteHabit,
+  syncConnector,
   onNavigateCreate,
-  onNavigateEdit
+  onNavigateEdit,
 }: Props) {
   const [filterId, setFilterId] = useState<string | null>(null);
   const [modalDay, setModalDay] = useState<Date | null>(null);
   const [modalHabitId, setModalHabitId] = useState<string | null>(null);
   const [showGrid, setShowGrid] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const filtered = filterId ? habits.find((h) => h.id === filterId) ?? null : null;
   const modalHabit = modalHabitId ? habits.find((h) => h.id === modalHabitId) ?? null : null;
@@ -52,9 +57,15 @@ export default function HomeScreen({
     return () => cancelAnimationFrame(id);
   }, [filterId]);
 
-  useEffect(() => {
-    console.log("HomeScreen received habits update:", habits.length);
-  }, [habits]);
+  const handleSync = async () => {
+    if (!filtered || syncing) return;
+    setSyncing(true);
+    const result = await syncConnector(filtered.id);
+    setSyncing(false);
+    if (!result.ok) {
+      Alert.alert("Sync failed", result.error ?? "Unknown error");
+    }
+  };
 
   const openModal = (habit: Habit, day: Date) => {
     setModalHabitId(habit.id);
@@ -87,10 +98,8 @@ export default function HomeScreen({
           text: "Remove",
           style: "destructive",
           onPress: async () => {
-            console.log("Deleting habit:", filtered?.id);
             await deleteHabit(filtered?.id ?? "");
-            console.log("Habit deleted, clearing filter");
-            setFilterId(null); // Limpa o filtro após deletar
+            setFilterId(null);
           },
         },
       ]
@@ -222,15 +231,58 @@ export default function HomeScreen({
                   </Text>
                 </View>
               )}
+              {(() => {
+                const s = computeStats(filtered.commits);
+                return (
+                  <View style={styles.statsRow}>
+                    <View style={styles.statItem}>
+                      <Text style={[styles.statValue, { fontFamily: FONT.bold, color: filtered.color.mid }]}>
+                        {s.currentStreak}
+                      </Text>
+                      <Text style={[styles.statLabel, { fontFamily: FONT.regular }]}>streak</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statItem}>
+                      <Text style={[styles.statValue, { fontFamily: FONT.bold, color: filtered.color.mid }]}>
+                        {s.longestStreak}
+                      </Text>
+                      <Text style={[styles.statLabel, { fontFamily: FONT.regular }]}>best</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statItem}>
+                      <Text style={[styles.statValue, { fontFamily: FONT.bold, color: filtered.color.mid }]}>
+                        {s.completionRate30d}%
+                      </Text>
+                      <Text style={[styles.statLabel, { fontFamily: FONT.regular }]}>30d</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statItem}>
+                      <Text style={[styles.statValue, { fontFamily: FONT.bold, color: filtered.color.mid }]}>
+                        {s.totalCommits}
+                      </Text>
+                      <Text style={[styles.statLabel, { fontFamily: FONT.regular }]}>total</Text>
+                    </View>
+                  </View>
+                );
+              })()}
+
               {filtered.connectorUrl ? (
-                <Text
-                  style={[
-                    styles.connectorLabel,
-                    { color: filtered.color.mid, fontFamily: FONT.regular },
-                  ]}
+                <TouchableOpacity
+                  onPress={handleSync}
+                  disabled={syncing}
+                  style={styles.syncRow}
                 >
-                  ⬡ active connector
-                </Text>
+                  {syncing ? (
+                    <ActivityIndicator size={10} color={filtered.color.mid} style={{ marginRight: 6 }} />
+                  ) : (
+                    <Text style={[styles.connectorLabel, { color: filtered.color.mid, fontFamily: FONT.regular }]}>
+                      ⬡
+                    </Text>
+                  )}
+                  <Text style={[styles.connectorLabel, { color: syncing ? filtered.color.base : filtered.color.mid, fontFamily: FONT.regular }]}>
+                    {syncing ? "syncing..." : "sync connector"}
+                  </Text>
+                </TouchableOpacity>
               ) : null}
             </View>
 
@@ -336,7 +388,19 @@ const styles = StyleSheet.create({
   bigName: { color: COLORS.text, fontSize: 16 },
   streak: { color: COLORS.textMuted, fontSize: 12 },
   editBtn: { color: COLORS.textGhost, fontSize: 13 },
-  connectorLabel: { fontSize: 10, marginTop: 10 },
+  connectorLabel: { fontSize: 10 },
+  syncRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 10 },
+  statsRow: {
+    flexDirection: "row",
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  statItem: { flex: 1, alignItems: "center" },
+  statValue: { fontSize: 18, letterSpacing: -0.5 },
+  statLabel: { color: COLORS.textGhost, fontSize: 9, marginTop: 2 },
+  statDivider: { width: 1, backgroundColor: COLORS.border },
   logCard: {
     backgroundColor: COLORS.surface,
     borderWidth: 1,
