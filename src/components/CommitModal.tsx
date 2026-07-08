@@ -10,6 +10,7 @@ import {
   Platform,
   TouchableWithoutFeedback,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { COLORS, FONT } from "../utils/theme";
 import { formatDatePtBR, toKey } from "../utils/date";
 import type { Habit } from "../types";
@@ -93,7 +94,11 @@ export default function CommitModal({ visible, day, habit, onClose, onSave, onRe
                 {existing?.committed && (
                   <TouchableOpacity
                     style={styles.btnRemove}
-                    onPress={() => { onRemove(key); onClose(); }}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      onRemove(key);
+                      onClose();
+                    }}
                     activeOpacity={0.7}
                   >
                     <Text style={[styles.btnRemoveText, { fontFamily: FONT.semiBold }]}>
@@ -106,7 +111,11 @@ export default function CommitModal({ visible, day, habit, onClose, onSave, onRe
                     styles.btnCommit,
                     { backgroundColor: habit.color.mid, flex: existing?.committed ? 2 : 1 },
                   ]}
-                  onPress={() => { onSave(key, msg); onClose(); }}
+                  onPress={() => {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    onSave(key, msg);
+                    onClose();
+                  }}
                   activeOpacity={0.8}
                 >
                   <Text style={[styles.btnCommitText, { fontFamily: FONT.bold }]}>

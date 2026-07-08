@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SharedPrefs from 'react-native-shared-preferences';
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import * as DocumentPicker from "expo-document-picker";
 import { updateWidget } from "../services/widget";
 
 import type { Habit, CommitMap } from "../types";
@@ -125,6 +128,32 @@ export function useHabits() {
     [habits, persist]
   );
 
+  const exportHabits = useCallback(async () => {
+    const data = JSON.stringify({ version: 1, habits }, null, 2);
+    const uri = FileSystem.cacheDirectory + "commitable-backup.json";
+    await FileSystem.writeAsStringAsync(uri, data, { encoding: FileSystem.EncodingType.UTF8 });
+    await Sharing.shareAsync(uri, { mimeType: "application/json", dialogTitle: "Export habits" });
+  }, [habits]);
+
+  const importHabits = useCallback(async (): Promise<"ok" | "canceled" | "invalid"> => {
+    const result = await DocumentPicker.getDocumentAsync({ type: "application/json", copyToCacheDirectory: true });
+    if (result.canceled) return "canceled";
+
+    try {
+      const content = await FileSystem.readAsStringAsync(result.assets[0].uri);
+      const parsed = JSON.parse(content) as { version?: number; habits?: unknown[] };
+      if (!Array.isArray(parsed.habits)) return "invalid";
+
+      const incoming = parsed.habits as Habit[];
+      const existingIds = new Set(habits.map((h) => h.id));
+      const merged = [...habits, ...incoming.filter((h) => !existingIds.has(h.id))];
+      await persist(merged);
+      return "ok";
+    } catch {
+      return "invalid";
+    }
+  }, [habits, persist]);
+
   const pinWidgetHabit = useCallback(
     (habitId: string | null) => {
       const habit = habitId ? habits.find((h) => h.id === habitId) : habits[0];
@@ -138,5 +167,5 @@ export function useHabits() {
     [habits]
   );
 
-  return { habits, loading, addHabit, updateHabit, deleteHabit, commitDay, uncommitDay, syncConnector, pinWidgetHabit };
+  return { habits, loading, addHabit, updateHabit, deleteHabit, commitDay, uncommitDay, syncConnector, pinWidgetHabit, exportHabits, importHabits };
 }

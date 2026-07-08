@@ -1,9 +1,10 @@
-import React, { useCallback, useState, useRef } from "react";
+import React, { useCallback, useState, useRef, useEffect } from "react";
 import {
   View,
   ActivityIndicator,
   Animated,
   Dimensions,
+  Alert,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
@@ -13,10 +14,13 @@ import {
   JetBrainsMono_700Bold,
 } from "@expo-google-fonts/jetbrains-mono";
 import * as SplashScreen from "expo-splash-screen";
+import * as Notifications from "expo-notifications";
 
 import HomeScreen from "./src/screens/HomeScreen";
 import CreateHabitScreen from "./src/screens/CreateHabitScreen";
 import { useHabits } from "./src/hooks/useHabits";
+import { setupNotificationCategory, COMMIT_ACTION_ID } from "./src/services/notifications";
+import { today, toKey } from "./src/utils/date";
 import { COLORS } from "./src/utils/theme";
 import type { Habit, Screen } from "./src/types";
 
@@ -41,11 +45,38 @@ export default function App() {
     uncommitDay,
     syncConnector,
     pinWidgetHabit,
+    exportHabits,
+    importHabits,
   } = useHabits();
 
   const [screen, setScreen] = useState<Screen>("home");
   const [editTarget, setEditTarget] = useState<Habit | null>(null);
+  const [filterId, setFilterId] = useState<string | null>(null);
   const slideAnim = useRef(new Animated.Value(0)).current;
+
+  // Lift habit selection so notifications can also drive it
+  const selectHabit = useCallback((id: string | null) => {
+    setFilterId(id);
+    pinWidgetHabit(id);
+  }, [pinWidgetHabit]);
+
+  // Notification: deep link + commit action
+  useEffect(() => {
+    setupNotificationCategory();
+
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const habitId = response.notification.request.content.data?.habitId as string | undefined;
+      if (!habitId) return;
+
+      if (response.actionIdentifier === COMMIT_ACTION_ID) {
+        commitDay(habitId, toKey(today()), "");
+      } else {
+        selectHabit(habitId);
+      }
+    });
+
+    return () => sub.remove();
+  }, [commitDay, selectHabit]);
 
   const navigateTo = (s: Screen, habit?: Habit | null) => {
     setEditTarget(habit ?? null);
@@ -70,6 +101,24 @@ export default function App() {
     });
   };
 
+  const handleBackup = () => {
+    Alert.alert("Backup", "What do you want to do?", [
+      {
+        text: "Export JSON",
+        onPress: () => exportHabits().catch(() => Alert.alert("Error", "Could not export habits.")),
+      },
+      {
+        text: "Import JSON",
+        onPress: async () => {
+          const result = await importHabits();
+          if (result === "ok") Alert.alert("Done", "Habits imported successfully.");
+          else if (result === "invalid") Alert.alert("Error", "Invalid file format.");
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded && !loading) {
       await SplashScreen.hideAsync();
@@ -78,14 +127,7 @@ export default function App() {
 
   if (!fontsLoaded || loading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: COLORS.bg,
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
+      <View style={{ flex: 1, backgroundColor: COLORS.bg, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator color={COLORS.textMuted} />
       </View>
     );
@@ -97,11 +139,13 @@ export default function App() {
         <View style={{ flex: 1 }}>
           <HomeScreen
             habits={habits}
+            filterId={filterId}
+            onSelectHabit={selectHabit}
             commitDay={commitDay}
             uncommitDay={uncommitDay}
             deleteHabit={deleteHabit}
             syncConnector={syncConnector}
-            pinWidgetHabit={pinWidgetHabit}
+            onBackup={handleBackup}
             onNavigateCreate={() => navigateTo("create", null)}
             onNavigateEdit={(habit) => navigateTo("edit", habit)}
           />

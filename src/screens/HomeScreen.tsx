@@ -21,26 +21,29 @@ import type { Habit } from "../types";
 
 type Props = {
   habits: Habit[];
+  filterId: string | null;
+  onSelectHabit: (id: string | null) => void;
   commitDay: (habitId: string, dateKey: string, message: string) => void;
   uncommitDay: (habitId: string, dateKey: string) => void;
   deleteHabit: (id: string) => void;
   syncConnector: (habitId: string) => Promise<{ ok: boolean; error?: string }>;
-  pinWidgetHabit: (habitId: string | null) => void;
+  onBackup: () => void;
   onNavigateCreate: () => void;
   onNavigateEdit: (habit: Habit) => void;
 };
 
 export default function HomeScreen({
   habits,
+  filterId,
+  onSelectHabit,
   commitDay,
   uncommitDay,
   deleteHabit,
   syncConnector,
-  pinWidgetHabit,
+  onBackup,
   onNavigateCreate,
   onNavigateEdit,
 }: Props) {
-  const [filterId, setFilterId] = useState<string | null>(null);
   const [modalDay, setModalDay] = useState<Date | null>(null);
   const [modalHabitId, setModalHabitId] = useState<string | null>(null);
   const [showGrid, setShowGrid] = useState(false);
@@ -51,7 +54,6 @@ export default function HomeScreen({
 
   useEffect(() => {
     setShowGrid(false);
-    pinWidgetHabit(filterId);
     const id = requestAnimationFrame(() => setShowGrid(true));
     return () => cancelAnimationFrame(id);
   }, [filterId]);
@@ -61,9 +63,7 @@ export default function HomeScreen({
     setSyncing(true);
     const result = await syncConnector(filtered.id);
     setSyncing(false);
-    if (!result.ok) {
-      Alert.alert("Sync failed", result.error ?? "Unknown error");
-    }
+    if (!result.ok) Alert.alert("Sync failed", result.error ?? "Unknown error");
   };
 
   const openModal = (habit: Habit, day: Date) => {
@@ -98,7 +98,7 @@ export default function HomeScreen({
           style: "destructive",
           onPress: async () => {
             await deleteHabit(filtered?.id ?? "");
-            setFilterId(null);
+            onSelectHabit(null);
           },
         },
       ]
@@ -115,33 +115,38 @@ export default function HomeScreen({
           <Text style={[styles.headerSub, { fontFamily: FONT.regular }]}>❯ ~/commitable</Text>
           <Text style={[styles.headerTitle, { fontFamily: FONT.bold }]}>Commitable</Text>
         </View>
-        <TouchableOpacity
-          style={[
-            styles.headerBtn,
-            filtered && {
-              backgroundColor: todayCommitted
-                ? filtered.color.base
-                : filtered.color.mid,
-              borderColor: filtered.color.bright,
-            },
-          ]}
-          onPress={handleHeaderBtn}
-          activeOpacity={0.7}
-        >
-          <Text
+        <View style={styles.headerActions}>
+          {!filtered && (
+            <TouchableOpacity style={styles.backupBtn} onPress={onBackup} activeOpacity={0.7}>
+              <Text style={[styles.backupBtnText, { fontFamily: FONT.regular }]}>⇅</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
             style={[
-              styles.headerBtnText,
-              { fontFamily: FONT.bold },
-              filtered && { color: "#fff" },
+              styles.headerBtn,
+              filtered && {
+                backgroundColor: todayCommitted ? filtered.color.base : filtered.color.mid,
+                borderColor: filtered.color.bright,
+              },
             ]}
+            onPress={handleHeaderBtn}
+            activeOpacity={0.7}
           >
-            {filtered
-              ? todayCommitted
-                ? "✓ edit commit"
-                : "❯ commit"
-              : "+ new habit"}
-          </Text>
-        </TouchableOpacity>
+            <Text
+              style={[
+                styles.headerBtnText,
+                { fontFamily: FONT.bold },
+                filtered && { color: "#fff" },
+              ]}
+            >
+              {filtered
+                ? todayCommitted
+                  ? "✓ edit commit"
+                  : "❯ commit"
+                : "+ new habit"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Filter bar */}
@@ -152,7 +157,7 @@ export default function HomeScreen({
         contentContainerStyle={styles.filterContent}
       >
         <TouchableOpacity
-          onPress={() => setFilterId(null)}
+          onPress={() => onSelectHabit(null)}
           style={[styles.filterChip, !filterId && styles.filterChipActive]}
         >
           <Text
@@ -167,22 +172,16 @@ export default function HomeScreen({
         {habits.map((h) => (
           <TouchableOpacity
             key={h.id}
-            onPress={() => setFilterId((id) => (id === h.id ? null : h.id))}
+            onPress={() => onSelectHabit(filterId === h.id ? null : h.id)}
             style={[
               styles.filterChip,
-              filterId === h.id && {
-                backgroundColor: h.color.base,
-                borderColor: h.color.mid,
-              },
+              filterId === h.id && { backgroundColor: h.color.base, borderColor: h.color.mid },
             ]}
           >
             <Text
               style={[
                 styles.filterChipText,
-                {
-                  fontFamily: FONT.regular,
-                  color: filterId === h.id ? COLORS.text : COLORS.textMuted,
-                },
+                { fontFamily: FONT.regular, color: filterId === h.id ? COLORS.text : COLORS.textMuted },
               ]}
             >
               ❯ {h.name}
@@ -202,21 +201,18 @@ export default function HomeScreen({
               <View style={styles.bigCardHeader}>
                 <View style={styles.nameRow}>
                   <View style={[styles.dot, { backgroundColor: filtered.color.bright }]} />
-                  <Text style={[styles.bigName, { fontFamily: FONT.bold }]}>
-                    ❯ {filtered.name}
-                  </Text>
+                  <Text style={[styles.bigName, { fontFamily: FONT.bold }]}>❯ {filtered.name}</Text>
                 </View>
                 <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
                   <TouchableOpacity onPress={() => onNavigateEdit(filtered)}>
                     <Text style={[styles.editBtn, { fontFamily: FONT.regular }]}>edit</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={confirmDelete}>
-                    <Text style={[styles.deleteBtnText, { fontFamily: FONT.regular }]}>
-                      remove
-                    </Text>
+                    <Text style={[styles.deleteBtnText, { fontFamily: FONT.regular }]}>remove</Text>
                   </TouchableOpacity>
                 </View>
               </View>
+
               {showGrid ? (
                 <CommitGrid
                   commits={filtered.commits}
@@ -225,11 +221,11 @@ export default function HomeScreen({
                 />
               ) : (
                 <View style={{ height: 120, justifyContent: "center", alignItems: "center" }}>
-                  <Text style={{ color: COLORS.textMuted, fontSize: 10 }}>
-                    preparing grid...
-                  </Text>
+                  <Text style={{ color: COLORS.textMuted, fontSize: 10 }}>preparing grid...</Text>
                 </View>
               )}
+
+              {/* Stats */}
               {(() => {
                 const s = computeStats(filtered.commits);
                 return (
@@ -266,17 +262,11 @@ export default function HomeScreen({
               })()}
 
               {filtered.connectorUrl ? (
-                <TouchableOpacity
-                  onPress={handleSync}
-                  disabled={syncing}
-                  style={styles.syncRow}
-                >
+                <TouchableOpacity onPress={handleSync} disabled={syncing} style={styles.syncRow}>
                   {syncing ? (
                     <ActivityIndicator size={10} color={filtered.color.mid} style={{ marginRight: 6 }} />
                   ) : (
-                    <Text style={[styles.connectorLabel, { color: filtered.color.mid, fontFamily: FONT.regular }]}>
-                      ⬡
-                    </Text>
+                    <Text style={[styles.connectorLabel, { color: filtered.color.mid, fontFamily: FONT.regular }]}>⬡</Text>
                   )}
                   <Text style={[styles.connectorLabel, { color: syncing ? filtered.color.base : filtered.color.mid, fontFamily: FONT.regular }]}>
                     {syncing ? "syncing..." : "sync connector"}
@@ -296,9 +286,7 @@ export default function HomeScreen({
           <View>
             {habits.length === 0 && (
               <View style={styles.emptyState}>
-                <Text style={[styles.emptyText, { fontFamily: FONT.regular }]}>
-                  no habit found yet
-                </Text>
+                <Text style={[styles.emptyText, { fontFamily: FONT.regular }]}>no habit found yet</Text>
                 <Text style={[styles.emptyHint, { fontFamily: FONT.regular }]}>
                   touch "+ new habit" to start
                 </Text>
@@ -309,7 +297,7 @@ export default function HomeScreen({
                 key={h.id}
                 habit={h}
                 selected={filterId === h.id}
-                onPress={() => setFilterId((id) => (id === h.id ? null : h.id))}
+                onPress={() => onSelectHabit(filterId === h.id ? null : h.id)}
                 onDayPress={(day) => openModal(h, day)}
                 onLongPress={() => onNavigateEdit(h)}
               />
@@ -323,12 +311,8 @@ export default function HomeScreen({
         day={modalDay}
         habit={modalHabit}
         onClose={closeModal}
-        onSave={(key, msg) => {
-          if (modalHabitId) commitDay(modalHabitId, key, msg);
-        }}
-        onRemove={(key) => {
-          if (modalHabitId) uncommitDay(modalHabitId, key);
-        }}
+        onSave={(key, msg) => { if (modalHabitId) commitDay(modalHabitId, key, msg); }}
+        onRemove={(key) => { if (modalHabitId) uncommitDay(modalHabitId, key); }}
       />
     </SafeAreaView>
   );
@@ -347,6 +331,16 @@ const styles = StyleSheet.create({
   },
   headerSub: { color: COLORS.textMuted, fontSize: 10 },
   headerTitle: { color: COLORS.text, fontSize: 22, letterSpacing: -0.5 },
+  headerActions: { flexDirection: "row", gap: 8, alignItems: "center" },
+  backupBtn: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  backupBtnText: { color: COLORS.textMuted, fontSize: 14 },
   headerBtn: {
     backgroundColor: COLORS.surface,
     borderWidth: 1,
@@ -385,10 +379,8 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   dot: { width: 10, height: 10, borderRadius: 5 },
   bigName: { color: COLORS.text, fontSize: 16 },
-  streak: { color: COLORS.textMuted, fontSize: 12 },
   editBtn: { color: COLORS.textGhost, fontSize: 13 },
-  connectorLabel: { fontSize: 10 },
-  syncRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 10 },
+  deleteBtnText: { color: COLORS.danger, fontSize: 13 },
   statsRow: {
     flexDirection: "row",
     marginTop: 14,
@@ -400,6 +392,8 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 18, letterSpacing: -0.5 },
   statLabel: { color: COLORS.textGhost, fontSize: 9, marginTop: 2 },
   statDivider: { width: 1, backgroundColor: COLORS.border },
+  connectorLabel: { fontSize: 10 },
+  syncRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 10 },
   logCard: {
     backgroundColor: COLORS.surface,
     borderWidth: 1,
@@ -412,5 +406,4 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: "center", paddingVertical: 60 },
   emptyText: { color: COLORS.textGhost, fontSize: 14, marginBottom: 6 },
   emptyHint: { color: COLORS.textGhost, fontSize: 11 },
-  deleteBtnText: { color: COLORS.danger, fontSize: 13 },
 });

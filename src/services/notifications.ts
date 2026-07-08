@@ -1,6 +1,9 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
+export const COMMIT_ACTION_ID = "commit_now";
+const CATEGORY_ID = "habit_reminder";
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -10,6 +13,16 @@ Notifications.setNotificationHandler({
     shouldShowList: true,
   }),
 });
+
+export async function setupNotificationCategory(): Promise<void> {
+  await Notifications.setNotificationCategoryAsync(CATEGORY_ID, [
+    {
+      identifier: COMMIT_ACTION_ID,
+      buttonTitle: "✓ Commit",
+      options: { isDestructive: false, isAuthenticationRequired: false },
+    },
+  ]);
+}
 
 export async function requestPermission(): Promise<boolean> {
   if (Platform.OS === "android") {
@@ -36,6 +49,7 @@ export async function scheduleDaily(
       title: "Commitable",
       body: `Don't forget to commit: ${habitName}`,
       data: { habitId },
+      categoryIdentifier: CATEGORY_ID,
     },
     trigger: {
       hour,
