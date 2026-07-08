@@ -22,7 +22,15 @@
       "package": "com.commitable.app"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#0d1117",
+          "defaultChannel": "default"
+        }
+      ]
     ]
   }
 }
