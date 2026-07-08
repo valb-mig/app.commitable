@@ -11,4 +11,3 @@ npm-debug.*
 web-build/
 .env
 pnpm-lock.yaml
-package-lock.json
