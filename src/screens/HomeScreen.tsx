@@ -25,6 +25,7 @@ type Props = {
   uncommitDay: (habitId: string, dateKey: string) => void;
   deleteHabit: (id: string) => void;
   syncConnector: (habitId: string) => Promise<{ ok: boolean; error?: string }>;
+  pinWidgetHabit: (habitId: string | null) => void;
   onNavigateCreate: () => void;
   onNavigateEdit: (habit: Habit) => void;
 };
@@ -35,6 +36,7 @@ export default function HomeScreen({
   uncommitDay,
   deleteHabit,
   syncConnector,
+  pinWidgetHabit,
   onNavigateCreate,
   onNavigateEdit,
 }: Props) {
@@ -49,11 +51,8 @@ export default function HomeScreen({
 
   useEffect(() => {
     setShowGrid(false);
-
-    const id = requestAnimationFrame(() => {
-      setShowGrid(true);
-    });
-
+    pinWidgetHabit(filterId);
+    const id = requestAnimationFrame(() => setShowGrid(true));
     return () => cancelAnimationFrame(id);
   }, [filterId]);
 

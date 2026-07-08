@@ -40,6 +40,7 @@ export default function App() {
     commitDay,
     uncommitDay,
     syncConnector,
+    pinWidgetHabit,
   } = useHabits();
 
   const [screen, setScreen] = useState<Screen>("home");
@@ -100,6 +101,7 @@ export default function App() {
             uncommitDay={uncommitDay}
             deleteHabit={deleteHabit}
             syncConnector={syncConnector}
+            pinWidgetHabit={pinWidgetHabit}
             onNavigateCreate={() => navigateTo("create", null)}
             onNavigateEdit={(habit) => navigateTo("edit", habit)}
           />

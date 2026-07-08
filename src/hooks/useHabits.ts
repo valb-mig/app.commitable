@@ -125,5 +125,18 @@ export function useHabits() {
     [habits, persist]
   );
 
-  return { habits, loading, addHabit, updateHabit, deleteHabit, commitDay, uncommitDay, syncConnector };
+  const pinWidgetHabit = useCallback(
+    (habitId: string | null) => {
+      const habit = habitId ? habits.find((h) => h.id === habitId) : habits[0];
+      if (!habit) return;
+      SharedPrefs.setName("habits");
+      SharedPrefs.setItem("habit_commits", JSON.stringify(habit.commits));
+      SharedPrefs.setItem("habit_color", habit.color.mid);
+      SharedPrefs.setItem("habit_name", habit.name);
+      updateWidget();
+    },
+    [habits]
+  );
+
+  return { habits, loading, addHabit, updateHabit, deleteHabit, commitDay, uncommitDay, syncConnector, pinWidgetHabit };
 }
